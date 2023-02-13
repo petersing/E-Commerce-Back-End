@@ -10,7 +10,7 @@ from Authentication.Decorator import Edit_JWT_Authentication, JWT_Authentication
 from .models import Client
 from django.core.cache import cache
 from datetime import datetime, timedelta, timezone
-from dateutil.relativedelta import relativedelta
+from django.conf import settings
 
 class GoogleAccount():
     @api_view(["POST"])
@@ -64,6 +64,10 @@ class AccountManager():
     @authentication_classes([JWT_Authentication])
     @permission_classes([IsAuthenticated])
     def Subscribe_Business(request):
+        
+        if settings.DEBUG != True:
+            return
+
         request_data = request.POST.dict()
         request_data['User'] = request.user.id
         New_Subscribe = Subscribe_Serializers(data=request_data)
