@@ -69,7 +69,7 @@ GOOGLE_CLIENT_ID = 'Your Google Client ID.apps.googleusercontent.com'
 
 ## Frontend Server
 
-https://github.com/petersing/E-Commerce-Front-End-
+https://github.com/petersing/E-Commerce-Front-End
 
 ## Declare
 
