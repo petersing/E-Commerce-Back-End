@@ -10,7 +10,7 @@ def file_directory_path(instance, filename):
     year, month, day= map(str, time.strftime("%Y %m %d").split())
     ext = filename.split('.').pop()
     filename = '{0}.{1}'.format(time.time(), ext)
-    return os.path.join('Chat_File_DataBase', year, month, day, instance.Message.Sender.username ,filename)
+    return os.path.join('E-Commerce-DataBase\Chat_File_DataBase', year, month, day, instance.Message.Sender.username ,filename)
 
 ##### Modify to match change Name
 class MessageData(models.Model):
