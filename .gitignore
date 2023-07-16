@@ -1,0 +1,8 @@
+# Data
+/Chat_File_DataBase
+/Product_DataBase
+/ProfileIcon_DataBase
+__pycache__/
+e_commerce_server/settings.py
+/E-Commerce-DataBase
+e_commerce_server/settings_dev.py
