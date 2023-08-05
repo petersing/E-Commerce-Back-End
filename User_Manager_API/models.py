@@ -26,6 +26,13 @@ class BusinessSubscribe(models.Model):
     Subscribe_Date = models.DateTimeField(null=True)
     Subscribe_Plan = models.CharField(max_length=30)
 
+class Advertisement(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    Agreement = models.BooleanField(default=True)
+    ConsentGlobalAds = models.BooleanField(default=True)
+    ConsentPersonalAds = models.BooleanField(default=True)
+    ConsentThirdPartyAds = models.BooleanField(default=True)
+
 class Client(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
@@ -37,7 +44,7 @@ class Client(AbstractUser):
     ProfileIcon = models.ImageField(upload_to= user_directory_path, null=True)
     ShoppingAddress = models.ManyToManyField(ShoppingAddress)
     is_OAuth = models.BooleanField()
-    Ads_Token = models.UUIDField(default=uuid.uuid4)
+    Ads = models.ForeignKey(Advertisement, on_delete=models.SET_NULL, null=True)
     is_superuser = None
     is_staff = None
     first_name = None

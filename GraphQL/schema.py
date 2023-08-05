@@ -1,6 +1,6 @@
 import graphene
 from .OrderSchema import AddTransportCode, MakeComment, ReturnProductFunction, RefundReturnRecordItem, RefundPayment, ConfirmOrder, AddReturnTransportCode, OrderQuery
-from .UserSchema import UserQuery, CreateOrUpdateAddress
+from .UserSchema import UserQuery, CreateOrUpdateAddress, UpdateUserAds
 from .ProductSchema import ProductQuery
 from .CartSchema import ModifyCartFunction
 from .AnalysisSchema import AnalysisQuery
@@ -28,6 +28,7 @@ class Mutations(graphene.ObjectType):
     MakeComment = MakeComment.Field()
     CancelPayment = CancelPayment.Field()
     RetrievePayment = RetrievePayment.Field()
+    UpdateUserAds = UpdateUserAds.Field()
     
     ### User Function
     CreateOrUpdateAddress = CreateOrUpdateAddress.Field()

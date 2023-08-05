@@ -29,6 +29,7 @@ class CommentType(DjangoObjectType):
     
     class Meta:
         model = ProductComment
+        exclude = ['Product', "ordersubitem_set"]
 
     def resolve_CreateDate(self : Meta.model, info):
         return self.Date.strftime('%Y-%m-%d')
@@ -37,7 +38,7 @@ class FullProductType(DjangoObjectType):
 
     class Meta:
         model = Product
-        exclude = ['Seller']
+        exclude = ['Seller', "productcomment_set", "orderitem_set"]
 
     ### Model
     SubItem = graphene.String()
@@ -275,7 +276,7 @@ class ProductQuery(graphene.ObjectType):
                 The Above Code is for user who already buy this
             """
             Filter = Q(ProductName__contains = '')
-            CacheData: Dict[str, Dict] = cache.get('Ads:{}:Main'.format(kwargs['user'].Ads_Token), {"KeyWords": {}, 'Searching': {}})
+            CacheData: Dict[str, Dict] = cache.get('Ads:{}:Main'.format(kwargs['user'].Ads.id), {"KeyWords": {}, 'Searching': {}})
             UserPreferenceData: Dict[str, int] = CacheData["KeyWords"]
             UserPreferenceData.update(CacheData["Searching"])
 

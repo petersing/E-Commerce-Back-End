@@ -4,8 +4,6 @@ from PIL import Image
 import os
 from django.conf import settings
 from django.db.models import Q
-import operator
-from functools import reduce
 from User_Manager_API.models import Client
 from django.core.cache import cache
 

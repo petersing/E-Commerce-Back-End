@@ -6,10 +6,8 @@ from typing import Optional, Dict, List
 
 
 def User_Product_Preference(model: Product, id: int, adsToken: Optional[str]): #### This function should use Celery to calculate, in order to reduce the delay.
-
     if not adsToken:
         return
-
     Item_Data: Product = Resolve_Cache_Model_Field.Resolve_Model(model, id)
     Key = set(re.findall(r'[^\W\d\s]{2,}',Item_Data.ProductName))
     CategoryKeyWords: List[str] = Item_Data.Category.split('/')

@@ -8,7 +8,6 @@ from rest_framework.permissions import IsAuthenticated
 import json
 from Authentication.Decorator import JWT_Authentication
 from .models import Product
-from PIL import Image
 from django.core.cache import cache
 from django.conf import settings
 

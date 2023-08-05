@@ -1,4 +1,4 @@
-from User_Manager_API.models import ShoppingAddress
+from User_Manager_API.models import Advertisement, ShoppingAddress
 from Cache_Function.Caches import Query_Cache_Function, Resolve_Cache_Model_Field
 from User_Manager_API.models import Client, ShoppingAddress as ShoppingAddressModel, BusinessSubscribe
 import graphene
@@ -9,7 +9,7 @@ from Chat_API.models import Chat_Channel_Record
 import json
 from django.db.models import Q
 from django.conf import settings
-from typing import List
+from typing import Dict, List
 from graphene_django import DjangoObjectType
 
 class BusinessSubscribeType(graphene.ObjectType):
@@ -33,13 +33,19 @@ class BusinessSubscribeType(graphene.ObjectType):
 class ShoppingAddressType(DjangoObjectType):
     class Meta:
         model = ShoppingAddressModel
+        exclude = ['client_set']
     
     id = graphene.Int()
+
+class UserAds(DjangoObjectType):
+    class Meta:
+        model = Advertisement
+        exclude = ["client_set"]
 
 class FullUserType(DjangoObjectType):
     class Meta:
         model = Client
-        exclude = ['Token_is_valided', 'Previous_Access_ID', 'Previous_Refresh_ID', 'password']
+        exclude = ['Token_is_valided', "paymentrecord_set", "returnrecord_Buyer", "returnrecord_Seller", 'Previous_Access_ID', 'Previous_Refresh_ID', 'password', "product_set", "productcomment_set", "orderrecord_Buyer", "orderrecord_Seller"]
 
     dateJoined = graphene.String()
     isSubscriber = graphene.Boolean()
@@ -47,6 +53,11 @@ class FullUserType(DjangoObjectType):
     ShoppingAddress = graphene.List(ShoppingAddressType)
     ProfileIcon = graphene.String()
     Subscribe = graphene.Field(BusinessSubscribeType)
+    Preference = graphene.List(graphene.String)
+
+    def resolve_Preference(self: Meta.model, info):
+        UserAdsData: Dict[str: int] = cache.get('Ads:{}:Main'.format(self.Ads.id), {"KeyWords": {}, "Searching": {}}) #### if you need to identify the word catelogy, maybe you need to train the ai model.
+        return set(UserAdsData['KeyWords'].keys()).union(set(UserAdsData['Searching'].keys()))
 
     def resolve_ProfileIcon(self: Meta.model, info):
         return settings.IMAGE_SERVER_URL + str(self.ProfileIcon)
@@ -77,7 +88,6 @@ class FullUserType(DjangoObjectType):
 
     def resolve_dateJoined(self: Meta.model, info):
         return self.date_joined.strftime('%Y-%m-%d')
-
 
 class PublicUserType(DjangoObjectType):
     class Meta:
@@ -145,6 +155,24 @@ class UserQuery(graphene.ObjectType):
             except:
                 return None
             
+class UpdateUserAds(graphene.Mutation):
+    class Arguments:
+        Agreement = graphene.Boolean(required=True)
+        ConsentGlobalAds = graphene.Boolean(required=True)
+        ConsentThirdPartyAds = graphene.Boolean(required=True)
+
+    status = graphene.Boolean()
+
+    @Check_JWT_Valid_GraphQL
+    def mutate(self, info, **kwargs):
+        user: Client = kwargs.pop('user')
+        Adv: Advertisement = user.Ads
+        Adv.Agreement = kwargs['Agreement']
+        Adv.ConsentGlobalAds = kwargs['ConsentGlobalAds']
+        Adv.ConsentThirdPartyAds = kwargs['ConsentThirdPartyAds']
+        Adv.save()
+        return UpdateUserAds(status=True)
+
 class CreateOrUpdateAddress(graphene.Mutation):
     class Arguments:
         id = graphene.Int(required=False)

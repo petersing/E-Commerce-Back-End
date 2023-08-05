@@ -7,7 +7,7 @@ from Authentication.Generate_Key import Generate_JWT_Key
 from Authentication.Decorator import CheckAccountValided, CheckGoogleOAuth2Valided
 from rest_framework.permissions import IsAuthenticated
 from Authentication.Decorator import Edit_JWT_Authentication, JWT_Authentication
-from .models import Client
+from .models import Client, Advertisement
 from django.core.cache import cache
 from datetime import datetime, timedelta, timezone
 from django.conf import settings
@@ -135,6 +135,11 @@ class TokenManager():
     @permission_classes([IsAuthenticated])
     def GetAdsToken(request):
         Response = HttpResponse(status=200)
-        Response.set_cookie('ads', request.user.Ads_Token, expires=datetime.now(tz=timezone.utc) + timedelta(weeks=999), path="/")
+        if request.user.Ads == None:
+            New_Ads = Advertisement.objects.create()
+            request.user.Ads = New_Ads
+            request.user.save()
+            cache.delete('Client:{}:Main'.format(request.user.pk))
+        Response.set_cookie('ads', request.user.Ads.id, expires=datetime.now(tz=timezone.utc) + timedelta(weeks=999), path="/")
         return Response
 
