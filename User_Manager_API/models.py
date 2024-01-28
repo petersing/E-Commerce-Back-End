@@ -66,3 +66,11 @@ class Client(AbstractUser):
             return False
 
 
+class Product_Categories(models.Model):
+    Category = models.CharField(max_length=300)
+    Product = models.ManyToManyField("Product_API.Product", related_name='Product', blank=True)
+    User = models.ForeignKey(Client, on_delete=models.CASCADE, null=True)
+    Status = models.BooleanField(default=True)
+    
+    def __str__(self) -> str:
+        return self.Category

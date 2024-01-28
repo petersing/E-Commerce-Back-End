@@ -2,9 +2,8 @@ from django.contrib.auth import get_user_model
 import jwt
 from rest_framework import exceptions
 from typing import Any, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
-from django.utils import timezone
 from django.conf import settings
 from django.core.cache import cache
 from User_Manager_API.models import Client
@@ -41,12 +40,12 @@ class Generate_JWT_Key():
     def Generate_Pair_Key(self, remember) -> Dict:
         try:
             access_key, access_jti = self.Generate_access_key(self.client.id)
-            refresh_key, refresh_jti = self.Generate_refresh_key(self.client.id, remember)
+            refresh_key, refresh_jti = self.Generate_refresh_key(self.client.id, remember)      
             Token_Record: Client = get_user_model().objects.filter(id=self.client.id).last()
             Token_Record.Previous_Refresh_ID = refresh_jti
             Token_Record.Previous_Access_ID =  access_jti
             Token_Record.Token_is_valided=True
-            Token_Record.last_login = timezone.now()
+            Token_Record.last_login = datetime.now(tz=timezone.utc)
             Token_Record.save()
             cache.set('Client:{}:Main'.format(self.client.id), Token_Record, 3600)
             return {'access': access_key, 'refresh': refresh_key}

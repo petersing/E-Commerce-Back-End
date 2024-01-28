@@ -19,6 +19,7 @@ from django.db.models import Count
 class SubOrderType(DjangoObjectType):
     class Meta:
         model = OrderSubItem
+        exclude = ['returnrecord_set']
 
     Comment = graphene.Boolean()
     id = graphene.Int()
@@ -36,6 +37,7 @@ class SubOrderType(DjangoObjectType):
 class OrderItemsType(DjangoObjectType):
     class Meta:
         model = OrderItem
+        exclude = ['returnrecord_set']
 
     DateCreate= graphene.String()
     Product = graphene.Field(FullProductType)
@@ -85,7 +87,7 @@ class OrderItemsType(DjangoObjectType):
 class OrderType(DjangoObjectType):
     class Meta:
         model = OrderRecord
-        exclude = ['Buyer', 'Seller']
+        exclude = ['Buyer', 'Seller', 'paymentrecord_set']
 
     id = graphene.Int()
     SellerName = graphene.String()
@@ -299,12 +301,14 @@ class CombineReturnProductAndCount(graphene.ObjectType):
 class OrderQuery(graphene.ObjectType):
     PaymentList = graphene.Field(CombinePaymentAndCount, Start=graphene.Int(required=True), End=graphene.Int(required=True), Filter=graphene.String(required=False))
     OrderDetail = graphene.Field(OrderType, id=graphene.Int(required=True))
-    OrderListSeller = graphene.Field(CombineOrderAndCount, Start=graphene.Int(required=True), End=graphene.Int(required=True), Filter=graphene.String(required=False))
+    OrderListSeller = graphene.Field(CombineOrderAndCount, Start=graphene.Int(required=True), End=graphene.Int(required=True), 
+                                                           Status=graphene.String(required=False), TransportStatus=graphene.String(required=False), 
+                                                           OrderStatus=graphene.String(required=False))
     ReturnProduct = graphene.Field(CombineReturnProductAndCount,Start=graphene.Int(required=True), End=graphene.Int(required=True), Filter=graphene.String(required=False), Identity=graphene.String(required=True))
     
     @Check_JWT_Valid_GraphQL
     def resolve_OrderListSeller(self, info, **kwargs):
-        CacheName = 'Client:{}:OrderListSeller:Filter_{}'.format(kwargs['user'].pk, kwargs.get('Filter'))
+        CacheName = 'Client:{}:OrderListSeller:Status_{}_TransportStatus_{}_OrderStatus_{}'.format(kwargs['user'].pk, kwargs.get("Status"), kwargs.get("TransportStatus"), kwargs.get("OrderStatus"))
         data = cache.get(CacheName)
         if data:
             cachedata = Resolve_Cache_Model_Field.Resolve_Model( prefetch_related=['paymentrecord_set'], Field=OrderRecord, Item_IDs=data[int(kwargs.get('Start')): int(kwargs.get('End'))])
@@ -312,16 +316,22 @@ class OrderQuery(graphene.ObjectType):
         else:
             FilterList = []
             FilterList.append(Q(Seller = kwargs['user']))
-            if kwargs.get('Filter') == 'WFS':
-                FilterList.append(Q(TransportCode__isnull=True))
+
+            if kwargs.get("Status") == 'normal':
                 FilterList.append(Q(Status = 'normal'))
-            elif kwargs.get('Filter') == 'Shipping':
-                FilterList.append(Q(TransportCode__isnull=False))
-                FilterList.append(Q(Status = 'normal'))
-            elif kwargs.get('Filter') == 'Cancel':
+            elif kwargs.get("Status") == 'cancel':
                 FilterList.append(Q(Status = 'cancel'))
-            elif kwargs.get('Filter') == 'Finish':
+
+            if kwargs.get("TransportStatus") == 'waiting':
+                FilterList.append(Q(TransportCode__isnull=True))
+            elif kwargs.get("TransportStatus") == 'transport':
+                FilterList.append(Q(TransportCode__isnull=False))
+
+            if kwargs.get("OrderStatus") == 'finish':
                 FilterList.append(Q(is_complete = True))
+            elif kwargs.get("OrderStatus") == 'process':
+                FilterList.append(Q(is_complete = False))
+
             data = OrderRecord.objects.filter(*FilterList).order_by('-id')
             cachedata = list(data.values_list('pk', flat=True))
             cache.set(CacheName, cachedata, 1200)
@@ -430,7 +440,7 @@ class RefundPayment(graphene.Mutation):
             TargetSubItem.Status = 'cancel'
             TargetSubItem.save()
             
-            if ReturnData.RemainOrder == 0:
+            if ReturnData.RemainOrder == 1:
                 ReturnData.is_complete = True
                 ReturnData.Status = 'cancel'
                 ReturnData.save()

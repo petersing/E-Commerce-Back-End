@@ -14,6 +14,7 @@ from django.core.cache import cache
 from graphql.type.definition import GraphQLResolveInfo
 from rest_framework.request import Request
 from django.db import transaction
+import time
 
 logger = getLogger(__file__)
 
@@ -123,6 +124,7 @@ class JWTAuthMiddleware:
 
     async def __call__(self, scope, receive, send):
         try:
+            
             StringData = dict((x.split('=') for x in scope['query_string'].decode().split("&")))
             token = StringData.get('Authorization', '')
             decode_result = jwt.decode(token, JWT_ENV_Setting['secret_key'], issuer=JWT_ENV_Setting["issuer"], algorithms=JWT_ENV_Setting['algorithm'], options={"verify_exp": True})

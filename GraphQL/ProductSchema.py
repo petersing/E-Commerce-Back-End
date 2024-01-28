@@ -21,6 +21,7 @@ from .UserSchema import PublicUserType
 from Advertising_API.UserSearchType import User_Product_Preference, User_Searching_Preference
 from graphql.type.definition import GraphQLResolveInfo
 from graphene_django import DjangoObjectType
+from User_Manager_API.models import Product_Categories
 
 class CommentType(DjangoObjectType):
     CreateDate = graphene.String()
@@ -226,7 +227,10 @@ class ProductQuery(graphene.ObjectType):
                                                   PriceStart=graphene.Float(required=False), PriceEnd=graphene.Float(required=False), QueueMethod = graphene.String(required=False),
                                                   adsToken = graphene.String(required=False))
 
-    PersonalProduct = graphene.Field(CombineProductAndCount, User=graphene.String(required=True), Start=graphene.Int(required=True), End=graphene.Int(required=True), StockType= graphene.String(required=False))
+    PersonalProductManagement = graphene.Field(CombineProductAndCount, Start=graphene.Int(required=False), End=graphene.Int(required=False), StockType= graphene.String(required=False), CategoryType= graphene.String(required=False), Status= graphene.String(required=False))
+    PersonalProduct = graphene.Field(CombineProductAndCount, User=graphene.String(required=True), Start=graphene.Int(required=False), End=graphene.Int(required=False), StockType= graphene.String(required=False), CategoryType= graphene.String(required=False))
+
+    CategoriesProduct = graphene.Field(CombineProductAndCount, Start=graphene.Int(required=False), End=graphene.Int(required=False), ListFilter = graphene.Int(required=False))
 
     SuggestionProduct = graphene.List(FullProductType, CategoryType = graphene.String(required=True), Count = graphene.Int(required=True))
 
@@ -237,6 +241,32 @@ class ProductQuery(graphene.ObjectType):
     PopularSuggestionProduct = graphene.List(FullProductType, Count= graphene.Int(required=True))
 
     BuyAgainProduct = graphene.List(FullProductType, Count= graphene.Int(required=True))
+
+    @Check_JWT_Valid_GraphQL
+    def resolve_CategoriesProduct(self, info, **kwargs):
+        CacheName = 'CategoriesProduct:User_{}'.format(kwargs['user'].id)
+        data = cache.get(CacheName)
+        if not data:
+            FilterList = []
+            FilterList.append(Q(Seller__username = kwargs['user'].username))
+            data =  Product.objects.filter(*FilterList)
+            cachedata = list(data.values_list('pk', flat=True))
+            cache.set(CacheName, cachedata, 1200)
+        
+        TotalData = set(data)
+
+        if kwargs.get('ListFilter', None) != None or kwargs.get('ListFilter', None) != -1:
+            CacheName = 'Categories:User_{}_{}'.format(kwargs['user'].id, kwargs.get('ListFilter'))
+            data = cache.get(CacheName)
+            if data:
+                TotalData = TotalData.difference(data)
+            else:
+                data = Product_Categories.objects.filter(User =  kwargs['user'].id, id = kwargs.get('ListFilter')).values_list('Product__pk', flat=True)
+                cache.set(CacheName, data, 3600)
+                TotalData = TotalData.difference(data)
+                
+        data = list(TotalData)
+        return {'Product': Resolve_Cache_Model_Field.Resolve_Model(Product, data[int(kwargs.get('Start', 0)): int(kwargs.get('End', 0))]), 'Count': len(data)}
 
     @Check_JWT_Valid_GraphQL
     def resolve_BuyAgainProduct(self, info, **kwargs):
@@ -267,6 +297,8 @@ class ProductQuery(graphene.ObjectType):
         CacheName = 'Client:{}:SuggestionProduct:Main'.format(kwargs['user'].id)
         data: List[int] = cache.get(CacheName)
         if data:
+            PreDisable_Key: set = cache.get(('ChangeProduct'), set())
+            data = set(data).difference(PreDisable_Key)
             return Resolve_Cache_Model_Field.Resolve_Model(Product, np.random.choice(data, kwargs.get('Count')))
         else:
             """
@@ -283,7 +315,7 @@ class ProductQuery(graphene.ObjectType):
             for x, _ in sorted(UserPreferenceData.items(), key=lambda x: x[1], reverse=True)[:5]:
                 Filter = operator.or_(Filter, Q(ProductName__contains = x))
                 Filter = operator.or_(Filter, Q(Category__contains = x))
-            data = Product.objects.filter(Filter).all()
+            data = Product.objects.filter(Filter, is_public=True).all()
             cachedata = list(data.values_list('pk', flat=True)[:100])
             cache.set(CacheName, cachedata, 3600)
             return data[:kwargs.get('Count')]
@@ -292,6 +324,8 @@ class ProductQuery(graphene.ObjectType):
         CacheName = 'SuggestionCategoryProduct:{}'.format(kwargs.get('CategoryType'))
         data = cache.get(CacheName)
         if data:
+            PreDisable_Key: set = cache.get(('ChangeProduct'), set())
+            data = set(data).difference(PreDisable_Key)
             return Resolve_Cache_Model_Field.Resolve_Model(Product, np.random.choice(data, kwargs.get('Count')))
         else:
             data = Product.objects.filter(Q(is_public = True), Q(Category__contains = kwargs.get('CategoryType')))
@@ -299,27 +333,55 @@ class ProductQuery(graphene.ObjectType):
             cache.set(CacheName, cachedata, 3600)
             return data[:kwargs.get('Count')]
 
+    @Check_JWT_Valid_GraphQL
+    def resolve_PersonalProductManagement(self, info, **kwargs):
+        CacheName = 'Client:{}:PersonalProductManagement:Main'.format(kwargs['user'].id)
+        CacheName = CacheName + '_StockType_{}'.format(kwargs.get('StockType')) if kwargs.get('StockType', False) else CacheName
+        CacheName = CacheName + '_CategoryType_{}'.format(kwargs.get('CategoryType')) if kwargs.get('CategoryType', False) else CacheName
+        CacheName = CacheName + '_Status_{}'.format(kwargs.get('Status')) if kwargs.get('Status', None) else CacheName
+        data = cache.get(CacheName)
+        if data:      
+            Cachedata = Resolve_Cache_Model_Field.Resolve_Model(Product, data[int(kwargs.get('Start', 0)): int(kwargs.get('End', 0))])
+            return {'Product': Cachedata, 'Count': len(data)}
+        else:
+            FilterList = []
+            FilterList.append(Q(Seller__username = kwargs['user'].username))
+            FilterList.append(Q(Stock__contains = kwargs.get('StockType', ''))) if kwargs.get('StockType', None) != 'All' else None
+            FilterList.append(Q(Category__contains = kwargs.get('CategoryType', ''))) if kwargs.get('CategoryType', None) != 'All' else None
+            if kwargs.get('Status', None) == 'Non-Normal':
+                FilterList.append(Q(ProductStatus = False))
+            elif kwargs.get('Status', None) == 'Normal':
+                FilterList.append(Q(ProductStatus = True))
+
+            data =  Product.objects.filter(*FilterList)
+            cachedata = list(data.values_list('pk', flat=True))
+            cache.set(CacheName, cachedata, 1200)
+            return {'Product': data[int(kwargs.get('Start', 0)): int(kwargs.get('End', 5))], 'Count': len(cachedata)}
+
     def resolve_PersonalProduct(self, info, **kwargs):
         CacheName = 'PersonalProduct:User_{}'.format(kwargs.get('User'))
         CacheName = CacheName + '_StockType_{}'.format(kwargs.get('StockType')) if kwargs.get('StockType', False) else CacheName
+        CacheName = CacheName + '_CategoryType_{}'.format(kwargs.get('CategoryType')) if kwargs.get('CategoryType', False) else CacheName
         data = cache.get(CacheName)
         if data:      
-            Cachedata = Resolve_Cache_Model_Field.Resolve_Model(Product, data[int(kwargs.get('Start')): int(kwargs.get('End'))])
+            PreDisable_Key: set = cache.get(('ChangeProduct'), set())
+            data = set(data).difference(PreDisable_Key)
+            Cachedata = Resolve_Cache_Model_Field.Resolve_Model(Product, data[int(kwargs.get('Start', 0)): int(kwargs.get('End', 0))])
             return {'Product': Cachedata, 'Count': len(data)}
         else:
             FilterList = []
             FilterList.append(Q(Seller__username = kwargs.get('User')))
             FilterList.append(Q(is_public = True))
             FilterList.append(Q(Stock__contains = kwargs.get('StockType', ''))) if kwargs.get('StockType', None) != 'All' else None
+            FilterList.append(Q(Category__contains = kwargs.get('CategoryType', ''))) if kwargs.get('CategoryType', None) != 'All' else None
             data =  Product.objects.filter(*FilterList)
             cachedata = list(data.values_list('pk', flat=True))
             cache.set(CacheName, cachedata, 1200)
-            return {'Product': data[int(kwargs.get('Start')): int(kwargs.get('End'))], 'Count': len(cachedata)}
+            return {'Product': data[int(kwargs.get('Start', 0)): int(kwargs.get('End', 5))], 'Count': len(cachedata)}
 
     def resolve_ProductDetail(self, info, **kwargs):
         User_Product_Preference(model=Product, adsToken=kwargs.get('adsToken'), id=kwargs['id'])
         return Resolve_Cache_Model_Field.Resolve_Model(Product, kwargs.get('id'))
-
 
     def resolve_PublicProduct(self, info, **kwargs):
         filter_Properties = []

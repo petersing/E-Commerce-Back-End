@@ -58,6 +58,16 @@ class Product_Serializers(serializers.ModelSerializer):
         instance.ProductName = validated_data['ProductName']
         instance.ShippingLocation = validated_data['ShippingLocation']
         instance.Category = validated_data['Category']
+        instance.ProductStatus = validated_data['ProductStatus']
+
+        if not validated_data["ProductStatus"]:
+            PreDisable_Key: set = cache.get(('ChangeProduct'), set())
+            PreDisable_Key.add(instance.id)
+        else:
+            PreDisable_Key: set = cache.get(('ChangeProduct'), set())
+            PreDisable_Key.discard(instance.id)
+        
+        cache.set(('ChangeProduct'), PreDisable_Key)
 
         #### SubItem
         SubItem : Dict[int, ProductSubItem] = {}

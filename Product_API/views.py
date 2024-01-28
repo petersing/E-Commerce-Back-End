@@ -25,7 +25,6 @@ def Create_Product(request):
         raise exceptions.MethodNotAllowed("This account has exceeded the product publish limit, please update your plan!", code=403)
 
     data = request.POST.dict()
-    
     if len(set(data.keys()).intersection(("Description", 'SubItem', 'ProductName', 'ShippingLocation', 'Category'))) != 5:
         raise exceptions.NotAcceptable("Please Input all data information")
     
@@ -36,6 +35,7 @@ def Create_Product(request):
     data['Seller'] = request.user.id
     data["Description"] = data["Description"].split('\r\n')
     data['SubItemList'] = json.loads(data.pop("SubItem", {}))
+
     data['DescriptionVideos'] = json.loads(data['DescriptionVideos'])
     data = Product_Serializers(data=data)
 
@@ -51,8 +51,13 @@ def Create_Product(request):
 @permission_classes([IsAuthenticated])
 def Modify_Product(request):
     data = request.POST.dict()
+    print(data)
 
-    Indicate_Product = Product.objects.select_related().get(id = data.get('id', None))
+    Indicate_Product = Product.objects.select_related().get(id = data.get('id', None), Seller = request.user)
+
+    if Indicate_Product == None:
+        raise exceptions.NotFound("This product is not found or you are not the owner of this product", code=404)
+    
     data['Images']= list(itertools.chain.from_iterable([request.FILES.getlist(x) for x in request.FILES if 'DescriptionImages' not in x]))
     data['DescriptionImages']= list(itertools.chain.from_iterable([request.FILES.getlist(x) for x in request.FILES if 'DescriptionImages' in x]))
     data["Description"] = data["Description"].split('\r\n')
@@ -60,6 +65,7 @@ def Modify_Product(request):
     data['RemoveImages'] = json.loads(data['RemoveImages']) if data.get('RemoveImages', None) else []
     data['RemoveDescriptionImages'] = json.loads(data['RemoveDescriptionImages']) if data.get('RemoveDescriptionImages', None) else []
     data['RemoveSubItem'] = json.loads(data['RemoveSubItem']) if data.get('RemoveSubItem', None) else []
+    data['ProductStatus'] = json.loads(data["ProductStatus"])
 
     ProductSerializer = Product_Serializers(Indicate_Product, data)
     if (ProductSerializer.is_valid()):
@@ -75,7 +81,9 @@ def Modify_Product(request):
 def Delete_Product(request):
     data = request.POST.dict()
     try:
-        Indicate_Product = Product.objects.get(id = data.get('id', None))
+        Indicate_Product = Product.objects.get(id = data.get('id', None), Seller = request.user)
+        if Indicate_Product == None:
+            raise exceptions.NotFound("This product is not found or you are not the owner of this product", code=404)
         Indicate_Product.delete()
         return HttpResponse(status=201)
     except:

@@ -45,6 +45,7 @@ class Product(models.Model):
     InvalidSubItem = models.ManyToManyField(ProductSubItem, related_name='Invalid_SubItem', blank=True)
     Stock = models.CharField(max_length=10, default='Enough')
     Seller = models.ForeignKey(Client, on_delete=models.SET_NULL, null=True)
+    ProductStatus = models.BooleanField(default=True)
 
     def Clearup_Stock_Cache(self):
         cache.delete_pattern('Product:{}:SubItem*'.format(self.id))
@@ -79,7 +80,6 @@ class Product(models.Model):
             Data = {'Price': self.Get_Lower_Price(), "Author": self.Seller.username, 'id': self.id}
             cache.set(CacheName, Data, 3600)
             return Data
-
         
 class Product_Image(models.Model):
     Product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
@@ -109,3 +109,4 @@ class Product_Description_Images(models.Model):
 
     def __str__(self) -> str:
         return str(self.image)
+    
